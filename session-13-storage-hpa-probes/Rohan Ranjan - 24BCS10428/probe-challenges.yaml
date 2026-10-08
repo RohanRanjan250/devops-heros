@@ -1,0 +1,66 @@
+# Bonus challenges 2 & 3 from the mini-project, isolated in their own namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: probes-lab
+---
+# Challenge 2: readiness probe points at a path that does not exist
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: readiness-gating
+  namespace: probes-lab
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: readiness-gating
+  template:
+    metadata:
+      labels:
+        app: readiness-gating
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /does-not-exist
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: readiness-svc
+  namespace: probes-lab
+spec:
+  selector:
+    app: readiness-gating
+  ports:
+    - port: 80
+      targetPort: 80
+---
+# Challenge 3: liveness probe points at /crash -> kubelet keeps restarting the container
+apiVersion: v1
+kind: Pod
+metadata:
+  name: liveness-crash
+  namespace: probes-lab
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27
+      ports:
+        - containerPort: 80
+      livenessProbe:
+        httpGet:
+          path: /crash
+          port: 80
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        failureThreshold: 3

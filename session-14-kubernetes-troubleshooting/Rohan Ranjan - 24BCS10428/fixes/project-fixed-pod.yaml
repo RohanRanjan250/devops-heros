@@ -1,0 +1,9 @@
+# Fix for mini-project/broken-pod.yaml: nginx:this-tag-does-not-exist -> a real tag
+apiVersion: v1
+kind: Pod
+metadata:
+  name: project-broken-pod
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27

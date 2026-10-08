@@ -1,0 +1,28 @@
+# Fix: the process needs ~1GB (100 x 10MB chunks), the limit was 20Mi.
+# Raise the limit above the real working set (and request what it needs).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fail-5-oomkilled-pod
+  labels:
+    tier: triage-gauntlet
+    scenario: oomkilled
+spec:
+  restartPolicy: Never
+  containers:
+    - name: memory-leaker
+      image: python:3.11-alpine
+      command:
+        - "python3"
+        - "-c"
+        - |
+          print("Allocating memory rapidly...")
+          chunks = []
+          for i in range(100):
+              chunks.append(b"x" * (10 * 1024 * 1024))
+          print("Allocated", len(chunks) * 10, "MB - done")
+      resources:
+        requests:
+          memory: "1100Mi"
+        limits:
+          memory: "1200Mi"

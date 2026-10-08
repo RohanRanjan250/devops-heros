@@ -1,0 +1,52 @@
+# Fix: point the client at a Service name that actually exists.
+# A real backing Service is created so the DNS name resolves.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres-db
+  labels:
+    app: postgres-db
+spec:
+  containers:
+    - name: postgres
+      image: postgres:16-alpine
+      env:
+        - name: POSTGRES_PASSWORD
+          value: triage
+      ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db
+spec:
+  selector:
+    app: postgres-db
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fail-4-dns-failure-pod
+  labels:
+    tier: triage-gauntlet
+    scenario: dns-failure
+spec:
+  containers:
+    - name: client
+      image: curlimages/curl:8.6.0
+      command: ["sh", "-c"]
+      args:
+        - |
+          echo "Attempting connection to internal database...";
+          # curl exit 6 = DNS failure; exit 52 (empty reply) = name resolved + TCP connected to Postgres
+          # retry while Postgres is still starting (exit 7 = name resolved but port not open yet)
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            curl -sS --connect-timeout 3 http://postgres-db.default.svc.cluster.local:5432; rc=$?
+            echo "attempt $i -> curl exit code: $rc"; [ $rc -ne 7 ] && break; sleep 3;
+          done
+          echo "Process sleeping...";
+          sleep 3600
