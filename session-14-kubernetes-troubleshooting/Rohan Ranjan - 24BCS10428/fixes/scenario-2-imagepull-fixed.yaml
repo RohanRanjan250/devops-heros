@@ -1,0 +1,12 @@
+# Fix: yatri-api-service:v999-invalid-tag-does-not-exist does not exist on any registry
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fail-2-imagepull-pod
+  labels:
+    tier: triage-gauntlet
+    scenario: imagepull
+spec:
+  containers:
+    - name: web-app
+      image: nginx:1.27
