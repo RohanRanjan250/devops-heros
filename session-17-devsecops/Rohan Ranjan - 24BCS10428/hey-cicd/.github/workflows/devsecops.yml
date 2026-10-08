@@ -1,0 +1,103 @@
+# Practice 08 - security gates
+# test + SAST + SCA + secret scan  ->  build  ->  image scan (gate)  ->  push to GHCR  ->  deploy (waits for rollout)
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/hey-cicd
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest --cov=app --cov-report=term-missing
+
+  sast:
+    name: SAST - CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@v3
+
+  sca:
+    name: SCA - pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt          # non-zero exit = known vulnerable dependency = gate fails
+
+  secrets:
+    name: Secret Scan - gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                            # scan full history, not just the last commit
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-scan-push:
+    name: Build, Scan (gate) and Push
+    needs: [test, sast, sca, secrets]               # gate 1: nothing is built unless all checks pass
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t $IMAGE:${{ github.sha }} .
+      - name: Trivy scan (gate 2)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"                            # fixable HIGH/CRITICAL -> job fails -> no push
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push (only after the image passed the scan)
+        if: github.event_name == 'push'
+        run: docker push $IMAGE:${{ github.sha }}
+
+  deploy:
+    name: Deploy to Kubernetes
+    needs: build-scan-push                          # gate 3: deploy only what was published
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1.10.0
+      - name: Deploy the exact SHA that was scanned
+        run: |
+          sed -i "s|hey-cicd:__IMAGE_TAG__|$IMAGE:${{ github.sha }}|; s|IfNotPresent|Always|" k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+      - name: Wait for rollout (gate 4)
+        run: kubectl rollout status deployment/session17-python --timeout=120s
