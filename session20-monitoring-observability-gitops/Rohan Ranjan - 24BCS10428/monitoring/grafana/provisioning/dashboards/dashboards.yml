@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: session20
+    folder: Session 20
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards
