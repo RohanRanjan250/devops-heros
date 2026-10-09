@@ -1,0 +1,31 @@
+frontend:
+  image: ghcr.io/YOUR_ORG/taskboard-frontend
+  tag: latest
+backend:
+  image: ghcr.io/YOUR_ORG/taskboard-backend
+  tag: latest
+  # must stay "backend": frontend/nginx.conf proxies /api to http://backend:8000
+  serviceName: backend
+replicaCount: 2
+namespace: taskboard
+imagePullSecrets: []
+imagePullPolicy: IfNotPresent
+postgres:
+  host: taskboard-postgres
+  database: taskboard
+  username: taskboard
+  password: taskboard
+ingress:
+  enabled: false
+  host: taskboard.local
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+resources:
+  requests: {cpu: 100m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+monitoring:
+  serviceMonitor:
+    enabled: true

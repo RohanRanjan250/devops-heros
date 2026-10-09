@@ -1,0 +1,14 @@
+# Fix: the class chart named this "<release>-taskboard-backend", but the Ingress
+# points at "taskboard-backend:8080" and the frontend's nginx.conf proxies /api to
+# "backend:8000", so neither could reach the API. One stable name + port everywhere.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.backend.serviceName }}
+  labels: {app: taskboard-backend}
+spec:
+  selector: {app: taskboard-backend}
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: http

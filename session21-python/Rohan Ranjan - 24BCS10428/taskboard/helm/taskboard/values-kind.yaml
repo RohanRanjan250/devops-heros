@@ -1,0 +1,9 @@
+# Local kind cluster: images built locally and side-loaded with `kind load docker-image`
+# (CI would instead set ghcr.io/<owner>/taskboard-*:<git sha>)
+frontend:
+  image: taskboard-frontend
+  tag: "1.0.0"
+backend:
+  image: taskboard-backend
+  tag: "1.0.0"
+imagePullPolicy: IfNotPresent
