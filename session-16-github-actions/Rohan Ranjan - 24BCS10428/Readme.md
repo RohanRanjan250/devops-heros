@@ -99,6 +99,30 @@ scanner like gitleaks (covered in Session 17).
 
 ---
 
+## 6. Workflows running on real GitHub Actions
+
+Besides running the pipeline locally with `act`, I also ran workflows on GitHub's hosted runners in
+my own repo [`RohanRanjan250/learn-cicd`](https://github.com/RohanRanjan250/learn-cicd), using
+`learn.yml` ("Hello GitHub Actions").
+
+**Manual trigger (`workflow_dispatch`)**: run #1, started from the Actions tab with **Run workflow**
+on `main`. The job `hello` succeeded in 3s (9s in total).
+
+![Manual run on GitHub](Screenshots/06-github-actions-manual-run.png)
+
+**Push trigger (`on: push`)**: run #2, "on push branches", started automatically by a `git push`.
+GitHub ran the `hello` job on an `ubuntu-latest` runner and every step passed: *Set up job → Print
+message → Show date → Show operating system → Show my name → Complete job*.
+
+![Push run on GitHub](Screenshots/07-github-actions-push-run.png)
+
+Together these show two of the triggers from the session: `workflow_dispatch` (manual) and `push`
+(automatic on every commit). The one notice under *Annotations* is GitHub saying that
+`ubuntu-latest` moves to Ubuntu 26 from 19 October 2026. It's informational and the runs still
+succeeded.
+
+---
+
 ## Key concepts, in my words
 
 - **CI vs CD**: CI means every push is automatically built and tested. Continuous *Delivery* means
